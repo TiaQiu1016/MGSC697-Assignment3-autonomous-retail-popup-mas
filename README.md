@@ -30,7 +30,7 @@
 - On-site staff (workload and scheduling)
 - Suppliers (order fulfillment, lead times)
 
-**Objective:** Maximize `(total_revenue × NPS_score) / total_cost` within the pop-up window while maintaining a margin floor of 20% and an NPS floor of 4.0/5.0.
+**Objective:** Maximize `(total_revenue × avg_satisfaction_score) / total_cost` within the pop-up window while maintaining a gross margin floor of 35% and a customer satisfaction floor of 4.0/5.0.
 
 **Failure stakes:** Stockouts leave revenue on the table; overstocking wastes capital; bad dynamic pricing alienates customers and triggers social backlash; understaffing creates long queues; a runaway markdown cascade collapses margin.
 
@@ -44,7 +44,7 @@
 | **Inventory Agent** | Track stock, trigger restocks/markdowns | POS system, inventory DB, supplier API | Current stock levels, reorder history | Read/write inventory, call supplier API |
 | **Pricing Agent** | Dynamic pricing to maximize revenue | Competitor price API, POS write API | Price history, demand signals | Write prices to POS (within guardrails) |
 | **Labor Agent** | Schedule staff to meet wait-time SLA | Staff scheduling app, task dispatch API | Shift roster, wait-time history | Read/write staff schedule |
-| **CX Agent** | Monitor NPS, wait times, handle inquiries | Chatbot interface, queue monitor, NPS API | Interaction logs, complaint history | Read queue, send notifications, escalate |
+| **CX Agent** | Monitor satisfaction scores, wait times, handle inquiries | Chatbot interface, queue monitor, satisfaction survey API | Interaction logs, complaint history | Read queue, send notifications, escalate |
 
 ---
 
@@ -61,7 +61,7 @@ graph TD
     CX[CX Agent\ncontinuous monitoring]
 
     BUS[(Pub-Sub Event Bus)]
-    SM[(Shared Blackboard\ncurrent stock · prices · NPS · foot traffic)]
+    SM[(Shared Blackboard\ncurrent stock · prices · satisfaction score · foot traffic)]
 
     HUMAN[Human Manager Dashboard]
 
@@ -126,8 +126,8 @@ Every message on the event bus follows this envelope:
 ### Escalation Rules
 
 - Any `priority: critical` message bypasses the bus and goes directly to the human dashboard
-- Pricing changes > 30% require orchestrator approval before hitting POS
-- Inventory orders above $500 require human confirmation
+- Pricing changes > 25% require orchestrator approval before hitting POS
+- Inventory orders above $300 require human confirmation
 
 ---
 
@@ -145,7 +145,7 @@ Unconstrained market mechanisms between agents with misaligned local objectives 
 
 ### The hybrid design
 
-- **Orchestrator layer:** Sets global KPIs, enforces hard guardrails (margin floor, NPS floor), owns the human escalation path
+- **Orchestrator layer:** Sets global KPIs, enforces hard guardrails (35% margin floor, 4.0/5.0 satisfaction floor), owns the human escalation path
 - **Market layer (Pricing ↔ Inventory):** When stock is high and closing time approaches, Inventory Agent signals clearance urgency with a `MARKDOWN_BID`. Pricing Agent responds with a markdown offer. The market clears at the discount rate that satisfies both the margin floor and the clearance goal
 - **Pub-sub for all other coordination:** Demand forecasts, CX alerts, and staff requests are broadcast events — any agent that needs them subscribes
 
@@ -159,18 +159,31 @@ Unconstrained market mechanisms between agents with misaligned local objectives 
 |---|---|---|
 | Demand | Minimize forecast MAPE | −3× if MAPE > 15% |
 | Inventory | Minimize end-of-event waste | −5× if stockout occurs |
-| Pricing | Maximize revenue per transaction | −10× if NPS drops below 4.0 |
-| Labor | Minimize labor cost | −5× if wait time > 5 min |
-| CX | Maximize NPS score | −5× if escalation rate > 10% |
+| Pricing | Maximize revenue per transaction | −10× if satisfaction drops below 4.0 |
+| Labor | Minimize labor cost | −5× if wait time > 4 min |
+| CX | Maximize avg satisfaction score | −5× if escalation rate > 10% |
 
-**Global reward (shared):** `(total_revenue × NPS_score) / total_cost`
+**Global reward (shared):** `(total_revenue × avg_satisfaction_score) / total_cost`
+
+> **Note on satisfaction score:** We use a 1–5 in-event satisfaction rating (collected via post-transaction survey) rather than traditional NPS (−100 to +100 scale), which requires a follow-up window incompatible with a same-day pop-up.
+
+### Markdown Timing (Pricing Agent Policy)
+
+As closing time approaches, the pricing agent follows a real-world clearance curve:
+
+| Time before close | Markdown depth |
+|---|---|
+| 2 hours | 10–15% off |
+| 1 hour | 20–30% off |
+| 30 min | 30–50% off |
+| Final 10 min | 50–70% off (cost recovery only) |
 
 ### Risks
 
 | Risk | Mitigation |
 |---|---|
-| Pricing-inventory death spiral | Margin floor guardrail hardcoded at 20% |
-| Labor cutting staff to save cost while CX degrades | Wait-time SLA penalty outweighs labor savings |
+| Pricing-inventory death spiral | Margin floor guardrail hardcoded at 35% |
+| Labor cutting staff to save cost while CX degrades | Wait-time SLA penalty (> 4 min) outweighs labor savings |
 | Demand agent over-forecasting to trigger restocks | MAPE penalty on forecast accuracy |
 | Free-rider (agent taking global reward without contributing) | Per-agent Shapley value attribution at event close |
 
@@ -209,8 +222,8 @@ The simulation prints all message exchanges to console and outputs a final event
 | Demand | MAPE | < 15% |
 | Inventory | Stockout rate | < 5% of SKUs |
 | Pricing | Revenue per transaction | > baseline +10% |
-| Labor | Wait time | < 5 min average |
-| CX | NPS | ≥ 4.0 / 5.0 |
+| Labor | Wait time | < 4 min average |
+| CX | Avg satisfaction score | ≥ 4.0 / 5.0 |
 
 ### Interaction-level metrics
 
@@ -220,7 +233,7 @@ The simulation prints all message exchanges to console and outputs a final event
 
 ### System-level metrics
 
-- Global reward: `(total_revenue × NPS) / total_cost`
+- Global reward: `(total_revenue × avg_satisfaction_score) / total_cost`
 - Gini coefficient of reward distribution across agents (fairness)
 - Shannon entropy of pricing actions (diversity of decisions)
 
@@ -236,18 +249,18 @@ The simulation prints all message exchanges to console and outputs a final event
 
 ### Hard guardrails (cannot be overridden by agents)
 
-- Pricing agent cannot set any price below cost (margin floor = 20%)
+- Pricing agent cannot set any price below cost (gross margin floor = 35%)
 - Pricing agent cannot exceed 3× MSRP
-- Inventory orders above $500 require human approval
-- Any price change > 30% triggers orchestrator review
+- Inventory orders above $300 require human approval
+- Any price change > 25% triggers orchestrator review
 
 ### Human-in-the-loop triggers
 
 | Condition | Action |
 |---|---|
-| NPS drops below 3.5 | CX agent escalates to manager dashboard |
-| Inventory order > $500 | Paused pending human confirmation |
-| Price change > 30% | Flagged for orchestrator approval |
+| Satisfaction score drops below 3.5 | CX agent escalates to manager dashboard |
+| Inventory order > $300 | Paused pending human confirmation |
+| Price change > 25% | Flagged for orchestrator approval |
 | Agent message queue backs up > 50 | Orchestrator alerts manager |
 
 ### Audit log
@@ -281,7 +294,7 @@ Partially yes — but premature for a first deployment.
 The pricing agent's decision problem maps cleanly to an MDP:
 - **State:** current demand, inventory levels, time remaining, competitor prices
 - **Action:** set price (continuous or discretized)
-- **Reward:** revenue × NPS contribution
+- **Reward:** revenue × avg_satisfaction_score contribution
 
 However, for a pop-up (short, one-time event):
 - There is no time to train online during the event
