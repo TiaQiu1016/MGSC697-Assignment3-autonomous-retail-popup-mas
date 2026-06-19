@@ -6,16 +6,17 @@
 
 ## Table of Contents
 
-1. [System Brief](#1-system-brief)
+1. [System Brief](#1-system-brief) · [Why MAS](#why-mas--why-a-single-agent-is-not-enough)
 2. [Agent Roster](#2-agent-roster)
 3. [Architecture Diagram](#3-architecture-diagram)
 4. [Communication Contract](#4-communication-contract)
-5. [Coordination Mechanism](#5-coordination-mechanism)
+5. [Coordination Mechanism](#5-coordination-mechanism) · [Emergence](#emergent-behavior)
 6. [Incentive Analysis](#6-incentive-analysis)
 7. [Prototype / Simulation](#7-prototype--simulation)
 8. [Evaluation Plan](#8-evaluation-plan)
 9. [Safety & Governance Plan](#9-safety--governance-plan)
 10. [MARL Bridge](#10-marl-bridge)
+11. [Interoperability — A2A and MCP](#11-interoperability--a2a-and-mcp-boundaries)
 
 ---
 
@@ -32,6 +33,24 @@
 **Objective:** Maximize `(total_revenue × avg_satisfaction_score) / total_cost` within the pop-up window while maintaining a gross margin floor of 35% and a customer satisfaction floor of 4.0/5.0.
 
 **Failure stakes:** Stockouts leave revenue on the table; overstocking wastes capital; bad dynamic pricing alienates customers and triggers social backlash; understaffing creates long queues; a runaway markdown cascade collapses margin.
+
+### Why MAS — Why a Single Agent Is Not Enough
+
+A single agent cannot run this pop-up because three fundamental constraints apply simultaneously:
+
+**1. Parallel decisions at different frequencies**
+Demand must be forecasted every 5 minutes, inventory checked every 10 minutes, and staffing reviewed every 30 minutes. A single agent processing these sequentially would either miss time-sensitive signals or create a bottleneck that delays every decision.
+
+**2. Competing local objectives that cannot coexist in one reward function**
+- Pricing wants to maximize margin → raise prices
+- CX wants satisfied customers → keep prices fair
+- Inventory wants zero waste → clear stock at any cost
+- Labor wants minimum headcount → reduce staff
+
+Combining these into one agent produces a reward function that is internally contradictory. A MAS allows each agent to optimize its local objective while a shared global reward and guardrails keep them aligned.
+
+**3. Tool and permission boundaries**
+Each agent needs access to fundamentally different external systems — the pricing agent writes to the POS, the labor agent reads the staff roster, the inventory agent calls the supplier API. Granting one agent unrestricted access to all systems is a security and governance risk. Role separation enforces least-privilege access.
 
 ---
 
@@ -147,6 +166,18 @@ Unconstrained market mechanisms between agents with misaligned local objectives 
 - **Orchestrator layer:** Sets global KPIs, enforces hard guardrails (35% margin floor, 4.0/5.0 satisfaction floor), owns the human escalation path
 - **Market layer (Pricing ↔ Inventory):** When stock is high and closing time approaches, Inventory Agent signals clearance urgency with a `MARKDOWN_BID`. Pricing Agent responds with a markdown offer. The market clears at the discount rate that satisfies both the margin floor and the clearance goal
 - **Pub-sub for all other coordination:** Demand forecasts, CX alerts, and staff requests are broadcast events — any agent that needs them subscribes
+
+### Emergent Behavior
+
+Emergence occurs when local agent interactions produce global behavior that was not explicitly programmed.
+
+**Expected (useful) emergence:**
+- **End-of-event clearance cascade** — as closing time approaches, the inventory agent signals urgency → pricing agent marks down → demand increases → labor agent calls in surge staff → satisfaction improves → pop-up closes with minimal waste and strong final-hour revenue. No single agent orchestrates this; it emerges from local rules.
+- **Demand-price equilibrium** — during a demand spike, pricing raises prices which slightly suppresses demand, which then signals pricing to stop surging. The system self-regulates without explicit coordination.
+
+**Unwanted emergence:**
+- **Death spiral** — demand drops → pricing marks down to stimulate sales → margin shrinks → labor cuts staff to save cost → wait times rise → satisfaction falls → demand drops further. Each agent acts rationally locally, but the system collapses globally. **Mitigation:** the 35% margin floor breaks the cycle before it starts; the wait-time SLA penalty prevents labor from cutting staff when CX is already degraded.
+- **Price oscillation** — pricing agent surges price → demand drops → pricing reads low demand and stops surging → demand recovers → pricing surges again. Creates an unstable price loop. **Mitigation:** circuit breaker after 3 reversals in 10 minutes.
 
 ---
 
@@ -306,3 +337,35 @@ However, for a pop-up (short, one-time event):
 3. **At scale:** Use **CTDE** (Centralized Training, Decentralized Execution) — train all agents jointly with global state, deploy each agent with only its local observations
 
 MARL is earned here, not assumed.
+
+---
+
+## 11. Interoperability — A2A and MCP Boundaries
+
+### MCP (Model Context Protocol) — within the system
+
+Each agent exposes its capabilities as typed MCP tools. This enforces least-privilege access and makes tool boundaries inspectable:
+
+| Agent | Exposes via MCP |
+|---|---|
+| Pricing Agent | `set_price(item_id, price)`, `get_current_prices()` |
+| Inventory Agent | `get_stock(item_id)`, `request_restock(item_id, units)` |
+| Labor Agent | `get_staff_count()`, `request_staff(count, reason)` |
+| CX Agent | `get_satisfaction_score()`, `escalate(reason)` |
+| Demand Agent | `get_forecast(product, horizon_min)` |
+
+The orchestrator uses MCP to call agent tools when enforcing guardrails, rather than reading shared state directly. This keeps the orchestrator decoupled from agent internals.
+
+### A2A (Agent-to-Agent) — at external boundaries
+
+A2A applies where agents cross trust or system boundaries:
+
+| Boundary | Why A2A matters |
+|---|---|
+| Inventory Agent → Supplier Portal | The supplier is an external system with its own auth, rate limits, and response schema. A2A task handoff (with context, task ID, retry semantics) is safer than a raw API call. |
+| Labor Agent → Staff Scheduling App | The scheduling app may be a third-party SaaS (e.g., Deputy, When I Work). A2A handles async confirmation and partial responses. |
+| Orchestrator → Human Manager | Human approval is modeled as an A2A task — the orchestrator sends a task request, waits for a human response, and handles timeout gracefully. |
+
+### Why both matter here
+
+MCP handles **intra-system** capability discovery and tool calls — agents finding and calling each other's functions safely. A2A handles **cross-boundary** work handoffs — where context, progress tracking, and retry semantics are needed because the other side is external, slow, or human.
