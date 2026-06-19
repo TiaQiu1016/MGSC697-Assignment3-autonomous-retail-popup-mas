@@ -306,9 +306,3 @@ However, for a pop-up (short, one-time event):
 3. **At scale:** Use **CTDE** (Centralized Training, Decentralized Execution) — train all agents jointly with global state, deploy each agent with only its local observations
 
 MARL is earned here, not assumed.
-
----
-
----
-
-*MGSC 697 — Designing & Building Agentic AI Systems*
