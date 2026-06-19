@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Retail Pop-Up · Event Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    padding: 28px;
+    min-height: 100vh;
+  }
+
+  /* ── header ── */
+  .header { margin-bottom: 28px; }
+  .header h1 { font-size: 1.6rem; font-weight: 700; color: #f1f5f9; }
+  .header p  { font-size: 0.85rem; color: #94a3b8; margin-top: 4px; }
+
+  /* ── scenario legend ── */
+  .legend {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .chip {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .chip-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* ── KPI cards ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .kpi-card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #334155;
+  }
+  .kpi-label { font-size: 0.75rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+  .kpi-value { font-size: 1.9rem; font-weight: 700; color: #f1f5f9; margin-top: 6px; }
+  .kpi-sub   { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+  .kpi-good  { color: #34d399; }
+  .kpi-warn  { color: #fbbf24; }
+  .kpi-bad   { color: #f87171; }
+
+  /* ── charts ── */
+  .charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+    gap: 20px;
+    margin-bottom: 28px;
+  }
+  .chart-card {
+    background: #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    border: 1px solid #334155;
+  }
+  .chart-card h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 16px;
+  }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* ── summary table ── */
+  .section { margin-bottom: 28px; }
+  .section h2 {
+    font-size: 0.85rem; font-weight: 600; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px;
+  }
+  table {
+    width: 100%; border-collapse: collapse;
+    background: #1e293b; border-radius: 12px; overflow: hidden;
+    border: 1px solid #334155; font-size: 0.85rem;
+  }
+  th {
+    background: #0f172a; color: #94a3b8;
+    font-weight: 600; font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 10px 16px; text-align: left;
+  }
+  td { padding: 10px 16px; border-top: 1px solid #334155; color: #cbd5e1; }
+  tr:hover td { background: #273549; }
+
+  /* ── message log ── */
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filter-btn {
+    padding: 4px 12px; border-radius: 6px; border: 1px solid #475569;
+    background: transparent; color: #94a3b8; font-size: 0.75rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #7c3aed; color: #c4b5fd; }
+  .filter-btn.active { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+
+  .priority-normal   { color: #94a3b8; }
+  .priority-high     { color: #fbbf24; }
+  .priority-critical { color: #f87171; font-weight: 600; }
+  .msg-payload { font-family: monospace; font-size: 0.78rem; color: #7dd3fc; }
+  .scenario-badge {
+    font-size: 0.7rem; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Autonomous Retail Pop-Up — Event Dashboard</h1>
+  <p>MGSC 697 · Assignment 3 · Multi-Agent System Simulation · Generated 2026-06-19 10:14</p>
+</div>
+
+<!-- Scenario legend -->
+<div class="legend">
+  <div class="chip" style="background:rgba(59,130,246,0.15);border-color:#3b82f6">
+    <div class="chip-dot" style="background:#3b82f6"></div> Normal Operation (t=0–44)
+  </div>
+  <div class="chip" style="background:rgba(245,158,11,0.15);border-color:#f59e0b">
+    <div class="chip-dot" style="background:#f59e0b"></div> Demand Spike (t=45–89)
+  </div>
+  <div class="chip" style="background:rgba(239,68,68,0.15);border-color:#ef4444">
+    <div class="chip-dot" style="background:#ef4444"></div> Stockout (t=90–149)
+  </div>
+  <div class="chip" style="background:rgba(16,185,129,0.15);border-color:#10b981">
+    <div class="chip-dot" style="background:#10b981"></div> Clearance (t=150–179)
+  </div>
+</div>
+
+<!-- KPI cards -->
+<div class="kpi-grid" id="kpi-grid"></div>
+
+<!-- Charts -->
+<div class="charts-grid">
+  <div class="chart-card">
+    <h3>Cumulative Revenue ($)</h3>
+    <div class="chart-wrap"><canvas id="chartRevenue"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>Stock Levels (units)</h3>
+    <div class="chart-wrap"><canvas id="chartStock"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>Price Evolution ($)</h3>
+    <div class="chart-wrap"><canvas id="chartPrices"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <h3>Satisfaction Score &amp; Wait Time</h3>
+    <div class="chart-wrap"><canvas id="chartSat"></canvas></div>
+  </div>
+</div>
+
+<!-- Units sold / wasted -->
+<div class="section">
+  <h2>Event Summary</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Product</th>
+        <th>Units Sold</th>
+        <th>Units Wasted</th>
+        <th>Waste Cost</th>
+      </tr>
+    </thead>
+    <tbody id="summary-body"></tbody>
+  </table>
+</div>
+
+<!-- Message log -->
+<div class="section">
+  <h2>Agent Message Log (<span id="msg-count"></span> messages)</h2>
+  <div class="filter-bar" id="filter-bar"></div>
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Type</th><th>From</th><th>Priority</th><th>Scenario</th><th>Payload</th></tr>
+    </thead>
+    <tbody id="msg-body"></tbody>
+  </table>
+</div>
+
+<script>
+const snapshots = [{"t": 0, "scenario": "Normal Operation", "bev": 292, "snacks": 244, "merch": 147, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 220.0, "foot_traffic": 50}, {"t": 5, "scenario": "Normal Operation", "bev": 284, "snacks": 238, "merch": 144, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 440.0, "foot_traffic": 50}, {"t": 10, "scenario": "Normal Operation", "bev": 276, "snacks": 232, "merch": 141, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 660.0, "foot_traffic": 50}, {"t": 15, "scenario": "Normal Operation", "bev": 268, "snacks": 226, "merch": 138, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 880.0, "foot_traffic": 50}, {"t": 20, "scenario": "Normal Operation", "bev": 260, "snacks": 220, "merch": 135, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 1100.0, "foot_traffic": 50}, {"t": 25, "scenario": "Normal Operation", "bev": 252, "snacks": 214, "merch": 132, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 1320.0, "foot_traffic": 50}, {"t": 30, "scenario": "Normal Operation", "bev": 244, "snacks": 208, "merch": 129, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 1540.0, "foot_traffic": 50}, {"t": 35, "scenario": "Normal Operation", "bev": 236, "snacks": 202, "merch": 126, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 1760.0, "foot_traffic": 50}, {"t": 40, "scenario": "Normal Operation", "bev": 228, "snacks": 196, "merch": 123, "price_bev": 8.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 1980.0, "foot_traffic": 50}, {"t": 45, "scenario": "Demand Spike", "bev": 208, "snacks": 190, "merch": 120, "price_bev": 8.8, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.2, "wait_time": 5.2, "staff": 3, "revenue": 2296.0, "foot_traffic": 70}, {"t": 50, "scenario": "Demand Spike", "bev": 188, "snacks": 184, "merch": 117, "price_bev": 9.68, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.2, "wait_time": 5.2, "staff": 3, "revenue": 2628.0, "foot_traffic": 70}, {"t": 55, "scenario": "Demand Spike", "bev": 168, "snacks": 178, "merch": 114, "price_bev": 10.65, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.2, "wait_time": 5.2, "staff": 3, "revenue": 2977.6, "foot_traffic": 70}, {"t": 60, "scenario": "Demand Spike", "bev": 148, "snacks": 172, "merch": 111, "price_bev": 11.72, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.2, "wait_time": 5.2, "staff": 4, "revenue": 3346.6, "foot_traffic": 70}, {"t": 65, "scenario": "Demand Spike", "bev": 128, "snacks": 166, "merch": 108, "price_bev": 12.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 3.4, "staff": 4, "revenue": 3737.0, "foot_traffic": 70}, {"t": 70, "scenario": "Demand Spike", "bev": 108, "snacks": 160, "merch": 105, "price_bev": 12.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 3.4, "staff": 4, "revenue": 4133.0, "foot_traffic": 70}, {"t": 75, "scenario": "Demand Spike", "bev": 88, "snacks": 154, "merch": 102, "price_bev": 12.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 3.4, "staff": 4, "revenue": 4529.0, "foot_traffic": 70}, {"t": 80, "scenario": "Demand Spike", "bev": 68, "snacks": 148, "merch": 99, "price_bev": 12.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 3.4, "staff": 4, "revenue": 4925.0, "foot_traffic": 70}, {"t": 85, "scenario": "Demand Spike", "bev": 48, "snacks": 142, "merch": 96, "price_bev": 12.0, "price_snacks": 6.0, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 3.4, "staff": 4, "revenue": 5321.0, "foot_traffic": 70}, {"t": 90, "scenario": "Stockout", "bev": 30, "snacks": 136, "merch": 93, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.15, "wait_time": 1.2, "staff": 3, "revenue": 5477.0, "foot_traffic": 50}, {"t": 95, "scenario": "Stockout", "bev": 22, "snacks": 130, "merch": 90, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 5731.88, "foot_traffic": 50}, {"t": 100, "scenario": "Stockout", "bev": 14, "snacks": 124, "merch": 87, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 5986.76, "foot_traffic": 50}, {"t": 105, "scenario": "Stockout", "bev": 6, "snacks": 118, "merch": 84, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.5, "wait_time": 2.2, "staff": 3, "revenue": 6241.64, "foot_traffic": 50}, {"t": 110, "scenario": "Stockout", "bev": 0, "snacks": 112, "merch": 81, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 6472.52, "foot_traffic": 50}, {"t": 115, "scenario": "Stockout", "bev": 0, "snacks": 106, "merch": 78, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 6631.4, "foot_traffic": 50}, {"t": 120, "scenario": "Stockout", "bev": 0, "snacks": 100, "merch": 75, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 6790.28, "foot_traffic": 50}, {"t": 125, "scenario": "Stockout", "bev": 0, "snacks": 94, "merch": 72, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 6949.16, "foot_traffic": 50}, {"t": 130, "scenario": "Stockout", "bev": 0, "snacks": 88, "merch": 69, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7108.04, "foot_traffic": 50}, {"t": 135, "scenario": "Stockout", "bev": 0, "snacks": 82, "merch": 66, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7266.92, "foot_traffic": 50}, {"t": 140, "scenario": "Stockout", "bev": 0, "snacks": 76, "merch": 63, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7425.8, "foot_traffic": 50}, {"t": 145, "scenario": "Stockout", "bev": 0, "snacks": 70, "merch": 60, "price_bev": 12.0, "price_snacks": 6.48, "price_merch": 40.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7584.68, "foot_traffic": 50}, {"t": 150, "scenario": "Clearance", "bev": 0, "snacks": 64, "merch": 57, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7678.28, "foot_traffic": 50}, {"t": 155, "scenario": "Clearance", "bev": 0, "snacks": 58, "merch": 54, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7771.88, "foot_traffic": 50}, {"t": 160, "scenario": "Clearance", "bev": 0, "snacks": 52, "merch": 51, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7865.48, "foot_traffic": 50}, {"t": 165, "scenario": "Clearance", "bev": 0, "snacks": 46, "merch": 48, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 7959.08, "foot_traffic": 50}, {"t": 170, "scenario": "Clearance", "bev": 0, "snacks": 40, "merch": 45, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 8052.68, "foot_traffic": 50}, {"t": 175, "scenario": "Clearance", "bev": 0, "snacks": 34, "merch": 42, "price_bev": 12.0, "price_snacks": 3.6, "price_merch": 24.0, "satisfaction": 4.3, "wait_time": 2.2, "staff": 3, "revenue": 8146.28, "foot_traffic": 50}];
+const messages  = [{"t": 0, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 5, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 10, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 15, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 20, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 25, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 30, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 35, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 40, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 45, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 45, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "beverages", "old_price": 8.0, "new_price": 8.8}}, {"t": 50, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 50, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "beverages", "old_price": 8.8, "new_price": 9.68}}, {"t": 55, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 55, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "beverages", "old_price": 9.68, "new_price": 10.65}}, {"t": 60, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 60, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "beverages", "old_price": 10.65, "new_price": 11.72}}, {"t": 60, "from": "labor_agent", "type": "STAFF_REQUEST", "priority": "normal", "payload": {"requested_staff": 4, "current_wait_time": 5.2, "reason": "wait_sla_breach"}}, {"t": 65, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 65, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "beverages", "old_price": 11.72, "new_price": 12.0}}, {"t": 70, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 75, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 80, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 85, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 20, "snacks": 6, "merchandise": 3}, "foot_traffic": 70, "mape": 0.0}}, {"t": 90, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 90, "from": "inventory_agent", "type": "INVENTORY_ALERT", "priority": "high", "payload": {"product": "beverages", "stock": 0, "status": "STOCKOUT"}}, {"t": 90, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "snacks", "old_price": 6.0, "new_price": 6.48}}, {"t": 90, "from": "labor_agent", "type": "STAFF_REQUEST", "priority": "normal", "payload": {"requested_staff": 3, "current_wait_time": 1.2, "reason": "optimization"}}, {"t": 95, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 100, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 100, "from": "inventory_agent", "type": "INVENTORY_ALERT", "priority": "high", "payload": {"product": "beverages", "stock": 14, "status": "LOW"}}, {"t": 105, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.0}}, {"t": 110, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.005}}, {"t": 115, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.005}}, {"t": 120, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.005}}, {"t": 125, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.005}}, {"t": 130, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 135, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 140, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 145, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 150, "from": "inventory_agent", "type": "MARKDOWN_BID", "priority": "high", "payload": {"product": "snacks", "stock_remaining": 70, "minutes_to_close": 30, "suggested_discount": 0.4}}, {"t": 150, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "snacks", "old_price": 6.48, "new_price": 3.6}}, {"t": 150, "from": "inventory_agent", "type": "MARKDOWN_BID", "priority": "high", "payload": {"product": "merchandise", "stock_remaining": 60, "minutes_to_close": 30, "suggested_discount": 0.4}}, {"t": 150, "from": "pricing_agent", "type": "PRICE_CHANGE", "priority": "normal", "payload": {"product": "merchandise", "old_price": 40.0, "new_price": 24.0}}, {"t": 150, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 155, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 160, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 165, "from": "inventory_agent", "type": "MARKDOWN_BID", "priority": "high", "payload": {"product": "snacks", "stock_remaining": 52, "minutes_to_close": 15, "suggested_discount": 0.4}}, {"t": 165, "from": "inventory_agent", "type": "MARKDOWN_BID", "priority": "high", "payload": {"product": "merchandise", "stock_remaining": 51, "minutes_to_close": 15, "suggested_discount": 0.4}}, {"t": 165, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 170, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}, {"t": 175, "from": "demand_agent", "type": "DEMAND_FORECAST", "priority": "normal", "payload": {"forecast": {"beverages": 8, "snacks": 6, "merchandise": 3}, "foot_traffic": 50, "mape": 0.004}}];
+const summary   = {"revenue": 8146.28, "cogs": 2898.0, "labor_cost": 171.0, "total_cost": 3069.0, "gross_margin": 64.4, "satisfaction": 4.3, "wait_time": 2.2, "global_reward": 11.41, "units_sold": {"beverages": 282, "snacks": 216, "merchandise": 108}, "units_wasted": {"beverages": 0, "snacks": 34, "merchandise": 42}, "escalations": 0, "messages_logged": 52, "waste_value": 698.0, "staff_final": 3};
+
+// ── scenario color lookup ──────────────────────────────────────────────────
+const SCEN_COLOR = {
+  "Normal Operation": "#3b82f6",
+  "Demand Spike":     "#f59e0b",
+  "Stockout":         "#ef4444",
+  "Clearance":        "#10b981",
+};
+const SCEN_BG = {
+  "Normal Operation": "rgba(59,130,246,0.12)",
+  "Demand Spike":     "rgba(245,158,11,0.12)",
+  "Stockout":         "rgba(239,68,68,0.12)",
+  "Clearance":        "rgba(16,185,129,0.12)",
+};
+
+function scenarioFor(t) {
+  if (t < 45)  return "Normal Operation";
+  if (t < 90)  return "Demand Spike";
+  if (t < 150) return "Stockout";
+  return "Clearance";
+}
+
+// ── KPI cards ──────────────────────────────────────────────────────────────
+const kpis = [
+  { label: "Total Revenue",  value: "$" + summary.revenue.toLocaleString(), sub: "3-hour event", cls: "kpi-good" },
+  { label: "Gross Margin",   value: summary.gross_margin + "%",
+     sub: summary.gross_margin >= 35 ? "✓ above 35% floor" : "✗ below floor",
+     cls: summary.gross_margin >= 35 ? "kpi-good" : "kpi-bad" },
+  { label: "Satisfaction",   value: summary.satisfaction + " / 5",
+     sub: summary.satisfaction >= 4.0 ? "✓ above 4.0 floor" : "✗ below floor",
+     cls: summary.satisfaction >= 4.0 ? "kpi-good" : "kpi-warn" },
+  { label: "Global Reward",  value: summary.global_reward, sub: "revenue × sat / cost", cls: "" },
+  { label: "Human Alerts",   value: summary.escalations, sub: "escalations triggered", cls: summary.escalations > 0 ? "kpi-warn" : "" },
+  { label: "Waste Value",    value: "$" + summary.waste_value, sub: "end-of-event stock cost", cls: summary.waste_value > 0 ? "kpi-warn" : "kpi-good" },
+  { label: "Messages",       value: summary.messages_logged, sub: "on the event bus", cls: "" },
+  { label: "Final Wait",     value: summary.wait_time + " min",
+     sub: summary.wait_time <= 4 ? "✓ within 4 min SLA" : "✗ above SLA",
+     cls: summary.wait_time <= 4 ? "kpi-good" : "kpi-bad" },
+];
+
+const grid = document.getElementById("kpi-grid");
+kpis.forEach(k => {
+  grid.innerHTML += `
+    <div class="kpi-card">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls}">${k.value}</div>
+      <div class="kpi-sub">${k.sub}</div>
+    </div>`;
+});
+
+// ── chart defaults ─────────────────────────────────────────────────────────
+Chart.defaults.color = "#64748b";
+Chart.defaults.borderColor = "#1e293b";
+
+const labels = snapshots.map(s => s.t);
+
+// vertical scenario dividers plugin
+const dividerPlugin = {
+  id: "dividers",
+  afterDraw(chart) {
+    const ctx = chart.ctx;
+    const xAxis = chart.scales.x;
+    const yAxis = chart.scales.y || chart.scales.y1 || Object.values(chart.scales)[1];
+    if (!xAxis || !yAxis) return;
+    [45, 90, 150].forEach(t => {
+      const x = xAxis.getPixelForValue(t);
+      if (!x) return;
+      ctx.save();
+      ctx.strokeStyle = "rgba(148,163,184,0.25)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, yAxis.top);
+      ctx.lineTo(x, yAxis.bottom);
+      ctx.stroke();
+      ctx.restore();
+    });
+  }
+};
+
+const baseOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: "#94a3b8", boxWidth: 12, font: { size: 11 } } },
+    tooltip: {
+      backgroundColor: "#0f172a",
+      borderColor: "#334155",
+      borderWidth: 1,
+      titleColor: "#f1f5f9",
+      bodyColor: "#94a3b8",
+      callbacks: {
+        title: items => "t = " + items[0].label + " min (" + scenarioFor(+items[0].label) + ")"
+      }
+    }
+  },
+  scales: {
+    x: {
+      grid: { color: "rgba(51,65,85,0.6)" },
+      ticks: { maxTicksLimit: 10, color: "#475569" }
+    },
+    y: {
+      grid: { color: "rgba(51,65,85,0.6)" },
+      ticks: { color: "#475569" }
+    }
+  }
+};
+
+// ── Revenue chart ──────────────────────────────────────────────────────────
+new Chart(document.getElementById("chartRevenue"), {
+  type: "line",
+  plugins: [dividerPlugin],
+  data: {
+    labels,
+    datasets: [{
+      label: "Revenue ($)",
+      data: snapshots.map(s => s.revenue),
+      borderColor: "#7c3aed",
+      backgroundColor: "rgba(124,58,237,0.1)",
+      fill: true,
+      tension: 0.3,
+      pointRadius: 0,
+      borderWidth: 2,
+    }]
+  },
+  options: { ...baseOptions }
+});
+
+// ── Stock chart ────────────────────────────────────────────────────────────
+new Chart(document.getElementById("chartStock"), {
+  type: "line",
+  plugins: [dividerPlugin],
+  data: {
+    labels,
+    datasets: [
+      { label: "Beverages", data: snapshots.map(s => s.bev),    borderColor: "#3b82f6", pointRadius: 0, tension: 0.3, borderWidth: 2 },
+      { label: "Snacks",    data: snapshots.map(s => s.snacks), borderColor: "#f59e0b", pointRadius: 0, tension: 0.3, borderWidth: 2 },
+      { label: "Merchandise", data: snapshots.map(s => s.merch),borderColor: "#10b981", pointRadius: 0, tension: 0.3, borderWidth: 2 },
+    ]
+  },
+  options: { ...baseOptions }
+});
+
+// ── Price chart ────────────────────────────────────────────────────────────
+new Chart(document.getElementById("chartPrices"), {
+  type: "line",
+  plugins: [dividerPlugin],
+  data: {
+    labels,
+    datasets: [
+      { label: "Beverages ($)", data: snapshots.map(s => s.price_bev),    borderColor: "#3b82f6", pointRadius: 0, tension: 0.2, borderWidth: 2 },
+      { label: "Snacks ($)",    data: snapshots.map(s => s.price_snacks), borderColor: "#f59e0b", pointRadius: 0, tension: 0.2, borderWidth: 2 },
+      { label: "Merchandise ($)", data: snapshots.map(s => s.price_merch),borderColor: "#10b981", pointRadius: 0, tension: 0.2, borderWidth: 2 },
+    ]
+  },
+  options: { ...baseOptions }
+});
+
+// ── Satisfaction + Wait time (dual axis) ───────────────────────────────────
+new Chart(document.getElementById("chartSat"), {
+  type: "line",
+  plugins: [dividerPlugin],
+  data: {
+    labels,
+    datasets: [
+      {
+        label: "Satisfaction (1–5)",
+        data: snapshots.map(s => s.satisfaction),
+        borderColor: "#34d399", pointRadius: 0, tension: 0.3, borderWidth: 2,
+        yAxisID: "y",
+      },
+      {
+        label: "Wait time (min)",
+        data: snapshots.map(s => s.wait_time),
+        borderColor: "#f87171", pointRadius: 0, tension: 0.3, borderWidth: 2,
+        borderDash: [5, 3],
+        yAxisID: "y1",
+      },
+    ]
+  },
+  options: {
+    ...baseOptions,
+    scales: {
+      x: baseOptions.scales.x,
+      y:  { ...baseOptions.scales.y, min: 0, max: 5.5, position: "left",  title: { display: true, text: "Satisfaction", color: "#34d399", font: { size: 10 } } },
+      y1: { ...baseOptions.scales.y, min: 0, max: 10,  position: "right", grid: { drawOnChartArea: false }, title: { display: true, text: "Wait (min)", color: "#f87171", font: { size: 10 } } },
+    }
+  }
+});
+
+// ── Summary table ──────────────────────────────────────────────────────────
+const costs = { beverages: 3, snacks: 2, merchandise: 15 };
+const tbody = document.getElementById("summary-body");
+["beverages", "snacks", "merchandise"].forEach(p => {
+  const wv = (summary.units_wasted[p] * costs[p]).toFixed(2);
+  tbody.innerHTML += `
+    <tr>
+      <td style="text-transform:capitalize">${p}</td>
+      <td>${summary.units_sold[p]}</td>
+      <td>${summary.units_wasted[p]}</td>
+      <td>${wv}</td>
+    </tr>`;
+});
+
+// ── Message log ────────────────────────────────────────────────────────────
+document.getElementById("msg-count").textContent = messages.length;
+
+const allTypes = [...new Set(messages.map(m => m.type))];
+let activeFilter = "ALL";
+
+const filterBar = document.getElementById("filter-bar");
+["ALL", ...allTypes].forEach(type => {
+  const btn = document.createElement("button");
+  btn.className = "filter-btn" + (type === "ALL" ? " active" : "");
+  btn.textContent = type;
+  btn.onclick = () => {
+    activeFilter = type;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    renderMessages();
+  };
+  filterBar.appendChild(btn);
+});
+
+function renderMessages() {
+  const filtered = activeFilter === "ALL" ? messages : messages.filter(m => m.type === activeFilter);
+  const mb = document.getElementById("msg-body");
+  mb.innerHTML = filtered.map(m => {
+    const scen = scenarioFor(m.t);
+    const color = SCEN_COLOR[scen];
+    return `<tr>
+      <td>t=${m.t}m</td>
+      <td><strong>${m.type}</strong></td>
+      <td>${m.from}</td>
+      <td class="priority-${m.priority}">${m.priority}</td>
+      <td><span class="scenario-badge" style="background:${SCEN_BG[scen]};color:${color}">${scen}</span></td>
+      <td class="msg-payload">${JSON.stringify(m.payload)}</td>
+    </tr>`;
+  }).join("");
+}
+renderMessages();
+</script>
+</body>
+</html>

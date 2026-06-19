@@ -225,7 +225,12 @@ As closing time approaches, the pricing agent follows a real-world clearance cur
 
 ```bash
 pip install -r requirements.txt
+
+# Text output — prints all agent messages and a final KPI summary
 python simulation/run_simulation.py
+
+# Visual dashboard — generates dashboard.html (open in any browser)
+python simulation/dashboard.py
 ```
 
 ### What the simulation demonstrates
@@ -239,7 +244,16 @@ A 3-hour pop-up event with four scripted scenarios:
 | t = 90 min | Best-seller stockout | Inventory → Pricing (substitute promotion) |
 | t = 150 min | End-of-event clearance | Inventory ↔ Pricing markdown auction |
 
-The simulation prints all message exchanges to console and outputs a final event dashboard.
+### Visual dashboard
+
+`dashboard.py` runs the full simulation silently, captures a snapshot every 5 minutes, and writes a self-contained `dashboard.html` file with:
+
+- **KPI cards** — Total Revenue, Gross Margin, Satisfaction Score, Global Reward, Human Alerts, Waste Value
+- **4 Chart.js charts** — Cumulative revenue, Stock levels, Price evolution, Satisfaction & wait time (dual axis)
+- **Scenario markers** — vertical dashed lines at t = 45, 90, and 150 min
+- **Filterable message log** — all 50+ agent messages, filterable by type, with scenario badges
+
+The dashboard represents the **Human Manager Dashboard** described in the architecture — the single pane of glass for the pop-up operator.
 
 ---
 
