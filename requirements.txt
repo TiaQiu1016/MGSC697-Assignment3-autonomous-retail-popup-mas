@@ -1,1 +1,1 @@
-simpy==4.1.1
+# No external dependencies — simulation uses Python standard library only
