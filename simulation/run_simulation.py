@@ -49,19 +49,20 @@ def print_snapshot(bb: Blackboard, t: int):
 
 
 def print_dashboard(bb: Blackboard, orc: Orchestrator, bus: MessageBus):
-    total_cost   = bb.total_labor_cost + bb.total_restock_cost
-    gross_margin = ((bb.total_revenue - total_cost) / bb.total_revenue * 100
+    cogs         = sum(bb.units_sold[p] * bb.costs[p] for p in bb.units_sold)
+    gross_margin = ((bb.total_revenue - cogs) / bb.total_revenue * 100
                     if bb.total_revenue else 0)
+    total_cost   = cogs + bb.total_labor_cost
     waste_value  = sum(bb.units_wasted[p] * bb.costs[p] for p in bb.units_wasted)
 
     print(f"\n{THICK}")
     print(f"  {BOLD}FINAL EVENT DASHBOARD{RESET}")
     print(THICK)
     print(f"  {'Revenue:':<28} ${bb.total_revenue:>8.2f}")
+    print(f"  {'COGS (cost of goods sold):':<28} ${cogs:>8.2f}")
     print(f"  {'Labor cost:':<28} ${bb.total_labor_cost:>8.2f}")
-    print(f"  {'Restock cost:':<28} ${bb.total_restock_cost:>8.2f}")
-    print(f"  {'Total cost:':<28} ${total_cost:>8.2f}")
-    print(f"  {'Gross margin:':<28} {gross_margin:>7.1f}%  "
+    print(f"  {'Total cost (COGS + labor):':<28} ${total_cost:>8.2f}")
+    print(f"  {'Gross margin (rev - COGS):':<28} {gross_margin:>7.1f}%  "
           f"{'✓ above 35% floor' if gross_margin >= 35 else '✗ below floor'}")
     print(DIVIDER)
     print(f"  {'Satisfaction score:':<28} {bb.satisfaction_score:.2f} / 5.0  "

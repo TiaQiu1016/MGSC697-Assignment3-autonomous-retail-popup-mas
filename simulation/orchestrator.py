@@ -80,7 +80,9 @@ class Orchestrator:
     # ── global reward ────────────────────────────────────────────────────────
 
     def global_reward(self) -> float:
-        total_cost = self.bb.total_labor_cost + self.bb.total_restock_cost
+        cogs       = sum(self.bb.units_sold[p] * self.bb.costs[p]
+                         for p in self.bb.units_sold)
+        total_cost = cogs + self.bb.total_labor_cost
         if total_cost == 0:
             return 0.0
         return round(
