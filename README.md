@@ -16,7 +16,6 @@
 8. [Evaluation Plan](#8-evaluation-plan)
 9. [Safety & Governance Plan](#9-safety--governance-plan)
 10. [MARL Bridge](#10-marl-bridge)
-11. [Contribution Statement](#11-contribution-statement)
 
 ---
 
@@ -309,10 +308,6 @@ However, for a pop-up (short, one-time event):
 MARL is earned here, not assumed.
 
 ---
-
-## 11. Contribution Statement
-
-*To be completed by the team.*
 
 ---
 
