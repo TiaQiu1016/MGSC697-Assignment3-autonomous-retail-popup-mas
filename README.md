@@ -143,9 +143,9 @@ Every message on the event bus follows this envelope:
 
 ### Escalation Rules
 
-- Any `priority: critical` message bypasses the bus and goes directly to the human dashboard
-- Pricing changes > 25% require orchestrator approval before hitting POS
-- Inventory orders above $300 require human confirmation
+- Any `priority: critical` message is still published on the shared bus, but the orchestrator subscribes to it directly and handles it immediately — ahead of normal-priority traffic — then forwards it to the human dashboard
+- Pricing changes > 25% are flagged for orchestrator review and auto-applied if the margin floor still holds — the change itself isn't blocked, only logged for visibility
+- Inventory orders above $300 are paused — the restock does not execute until a human confirms
 
 ---
 
@@ -291,6 +291,8 @@ The dashboard represents the **Human Manager Dashboard** described in the archit
 
 ## 9. Safety & Governance Plan
 
+> **Implementation note:** The margin floor, order cap, and price-change flagging below are enforced in code today (`simulation/orchestrator.py`). Audit log, rollback, circuit breaker, and Shapley attribution describe the target production design — they are not yet wired into the simulation prototype.
+
 ### Hard guardrails (cannot be overridden by agents)
 
 - Pricing agent cannot set any price below cost (gross margin floor = 35%)
@@ -304,7 +306,7 @@ The dashboard represents the **Human Manager Dashboard** described in the archit
 |---|---|
 | Satisfaction score drops below 3.5 | CX agent escalates to manager dashboard |
 | Inventory order > $300 | Paused pending human confirmation |
-| Price change > 25% | Flagged for orchestrator approval |
+| Price change > 25% | Flagged for orchestrator review; auto-applied if margin floor holds |
 | Agent message queue backs up > 50 | Orchestrator alerts manager |
 
 ### Audit log
