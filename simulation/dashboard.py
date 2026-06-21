@@ -11,7 +11,6 @@ import os
 import json
 import contextlib
 import io
-from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -113,11 +112,10 @@ def run_silent():
 
 # ── HTML generation ──────────────────────────────────────────────────────────
 
-def generate_html(snapshots, messages, summary):
+def generate_html(snapshots, messages, summary, chartjs_code):
     ts   = json.dumps(snapshots)
     msgs = json.dumps(messages)
     sm   = json.dumps(summary)
-    generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -125,7 +123,7 @@ def generate_html(snapshots, messages, summary):
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Retail Pop-Up · Event Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>{chartjs_code}</script>
 <style>
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
@@ -240,7 +238,7 @@ def generate_html(snapshots, messages, summary):
 
 <div class="header">
   <h1>Autonomous Retail Pop-Up — Event Dashboard</h1>
-  <p>MGSC 697 · Assignment 3 · Multi-Agent System Simulation · Generated {generated_at}</p>
+  <p>MGSC 697 · Assignment 3 · Multi-Agent System Simulation</p>
 </div>
 
 <!-- Scenario legend -->
@@ -568,7 +566,11 @@ def main():
         snapshots, messages, summary = run_silent()
     print(f"  {len(snapshots)} snapshots  |  {len(messages)} messages captured")
 
-    html = generate_html(snapshots, messages, summary)
+    chartjs_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vendor", "chart.umd.min.js")
+    with open(chartjs_path) as f:
+        chartjs_code = f.read()
+
+    html = generate_html(snapshots, messages, summary, chartjs_code)
 
     out = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
